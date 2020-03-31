@@ -8,7 +8,8 @@ typedef enum {
     S__WAIT_TO_START,
     S__POLL_TO_START,
     S__TIMER,
-} control_state;
+    S__WAIT_FOR_BOOST,
+} t_control_state;
 
 
 //public

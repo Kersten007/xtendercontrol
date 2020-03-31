@@ -27,6 +27,7 @@ int obj_write(int object_id, float data, typ_t t);
 scom_error_t exchange_frame(scom_frame_t* frame);
 
 int obj_read_bool(int object_id);
+int obj_u_read_bool(int object_id);
 int obj_read_short(int object_id);
 float obj_read_float(int object_id);
 

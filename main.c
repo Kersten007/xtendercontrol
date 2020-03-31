@@ -20,7 +20,19 @@ int main()
     intit_all();
     sleep(1);
 
-    obj_read(3000, "3000 = %.2f\n", T_FLOAT);
+
+    //obj_u_write_bool(1124, 1); //Inverter allowed
+    //printf ("1124 = %d\n", obj_read_bool(1124));
+    //printf ("u 1124 = %.f\n", obj_u_read_bool(1124));
+
+
+    //obj_u_write_bool(1125, 0); //Charger allowed
+    //printf ("1125 = %d\n", obj_u_read_bool(1125));    
+
+    //printf ("3049 = %d\n", obj_read_short(3049)); 
+    
+
+    //return 0;
 
     while (1) //main loop
     {

@@ -10,9 +10,9 @@
 #include <string.h>
 
 
+bool obj_do_not_write = 0;
 
 #define OBJEKTE_SIZE  37
-
 const obj_t objekte[OBJEKTE_SIZE] =
 {
     1107, T_FLOAT,"Maximum AC current \t1107 = %.2f A\n",
@@ -77,6 +77,12 @@ int obj_read_bool(int object_id)
     return (int)obj_read(object_id, "", T_BOOL);
 }
 
+int obj_u_read_bool(int object_id)
+{
+    return (int)obj_read(object_id  | _D_UNSAVED, "", T_BOOL);
+}
+
+
 int obj_read_short(int object_id)
 {
     return (int)obj_read(object_id, "", T_SHORT);
@@ -91,6 +97,7 @@ float obj_read_float(int object_id)
 
 float obj_read(int object_id, char * text, typ_t t)
 {
+    int obj = object_id & 0xFFFF;
 
     scom_frame_t frame;
     scom_property_t property;
@@ -102,7 +109,7 @@ float obj_read(int object_id, char * text, typ_t t)
 
     frame.src_addr = 1;     /* my address, could be anything */
     frame.dst_addr = 101;   /* the first inverter */
-    property.object_id = object_id;
+    property.object_id = obj;
 
     if((property.object_id >= 3000) && (property.object_id<=3200))
     {
@@ -111,14 +118,17 @@ float obj_read(int object_id, char * text, typ_t t)
     }
     else
     {
-        property.object_type = SCOM_PARAMETER_OBJECT_TYPE;  
-        property.property_id = _D_VALUE_QSP;  
+        property.object_type = SCOM_PARAMETER_OBJECT_TYPE; 
+        if (object_id & _D_UNSAVED)
+            property.property_id = _D_UNSAVED_VALUE_QSP;
+        else
+            property.property_id = _D_VALUE_QSP;         
     }
 
     scom_encode_read_property(&property);
 
     if(frame.last_error != SCOM_ERROR_NO_ERROR) {
-        printf("read property frame encoding failed with error 0x%x\n", (int) frame.last_error);
+        printf("obj_read property frame encoding failed with error 0x%x\n", (int) frame.last_error);
         return 9999.0;
     }
 
@@ -133,7 +143,7 @@ float obj_read(int object_id, char * text, typ_t t)
     /* decode the read property service part */
     scom_decode_read_property(&property);
     if(frame.last_error != SCOM_ERROR_NO_ERROR) {
-        printf("read property decoding failed with error 0x%x\n", (int) frame.last_error);
+        printf("obj_read property decoding failed with error 0x%x\n", (int) frame.last_error);
         return 9999.0;
     }
 
@@ -152,7 +162,7 @@ float obj_read(int object_id, char * text, typ_t t)
         value_length = 1;
     }     
     if(property.value_length != value_length) {
-        printf("invalid property data response size %d != 4 \n", property.value_length);
+        printf("obj_read invalid property data response size %d != %d \n", property.value_length, value_length);
         return 9999.0;
     }
 
@@ -177,8 +187,8 @@ float obj_read(int object_id, char * text, typ_t t)
     }     
     else if (t == T_BOOL)
     {
-        int r = scom_read_le16(property.value_buffer)&0x00FF;
-        printf(text,r );
+        int r = scom_read_le16(property.value_buffer) & 0x00FF;
+        printf(text, r );
         return r;
     }   
     
@@ -225,11 +235,14 @@ int obj_u_write_float(int object_id, float data)
 
 int obj_write(int object_id, float data, typ_t t)
 {
-    int obj = obj & 0xFFFF;
+    int obj = object_id & 0xFFFF;
 
     scom_frame_t frame;
     scom_property_t property;
     char buffer[1024];
+
+    if(obj_do_not_write)
+        return 0;
 
     /* initialize the structures */
     scom_initialize_frame(&frame, buffer, sizeof(buffer));
@@ -253,18 +266,26 @@ int obj_write(int object_id, float data, typ_t t)
             property.property_id = _D_VALUE_QSP;  
     }
 
-    scom_write_le_float(property.value_buffer, data);
-
-    if ((t == T_FLOAT) || (t == T_LONG))
+    if (t == T_FLOAT)
     {
+        scom_write_le_float(property.value_buffer, data);        
         property.value_length = 4;
     }
+    else if (t == T_LONG)
+    {
+        scom_write_le32(property.value_buffer, (long)data);
+        property.value_length = 2;
+    }      
     else if (t == T_SHORT)
     {
+        int d = data;
+        scom_write_le16(property.value_buffer, d);
         property.value_length = 2;
     }     
     else if (t == T_BOOL)
     {
+        int d = data;
+        scom_write_le16(property.value_buffer, d & 0xFF);
         property.value_length = 1;
     } 
 
@@ -280,6 +301,10 @@ int obj_write(int object_id, float data, typ_t t)
         printf("exchange Error\n");
         return -1;
     }
+
+
+    //printf ("o:%d w:%d, r:%d\n",obj , data , obj_read_bool(obj));
+    //printf ("o:%d w:%.2f, r:%.2f\n",obj , data , obj_read_float(obj));
 
     return 0;
 }
